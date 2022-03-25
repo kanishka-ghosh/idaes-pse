@@ -86,7 +86,52 @@ class arrhenius():
                 units=units["energy_mole"])
 
         set_param_from_config(rblock, param="energy_activation", config=config)
-
+        
+        rblock.alpha_olig = Var(
+        	doc="Oligomerization pre-exponential",
+        	units=r_units_alpha_olig)
+        set_param_from_config(rblock, param="alpha_olig",config=config)
+        
+        rblock.alpha_olig = Var(
+        	doc="Cracking pre-exponential",
+        	units=r_units_alpha_crack)
+        set_param_from_config(rblock, param="alpha_crack",config=config)
+        
+        rblock.gamma = Var(
+        	doc="Gamma",
+        	units=units["energy_mole"])
+        set_param_from_config(rblock, param="gamma",config=config)
+        
+        rblock.delta = Var(
+        	doc="Delta",
+        	units=units["energy_mole"])
+        set_param_from_config(rblock, param="delta",config=config)
+        
+        rblock.alpha_ads = Var(
+        	doc="Alpha adsorption",
+        	units=units["energy_mole"])
+        set_param_from_config(rblock, param="alpha_ads",config=config)
+        
+        rblock.beta_ads = Var(
+        	doc="Beta adsorption",
+        	units=units["energy_mole"])
+        set_param_from_config(rblock, param="beta_ads",config=config)
+        
+        rblock.kappa_olig = Var(
+        	doc="Kappa oligomerization",
+        	units=None)
+        set_param_from_config(rblock, param="kappa_olig",config=config)
+	
+	rblock.kappa_crack = Var(
+        	doc="Kappa cracking",
+        	units=None)
+        set_param_from_config(rblock, param="kappa_crack",config=config)
+        
+        rblock.E0 = Var(
+        	doc="E0",
+        	units=units["energy_mole"])
+        set_param_from_config(rblock, param="E0",config=config)
+        
     @staticmethod
     def return_expression(b, rblock, r_idx, T):
         units = rblock.parent_block().get_metadata().derived_units
