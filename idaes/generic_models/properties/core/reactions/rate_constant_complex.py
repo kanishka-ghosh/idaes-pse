@@ -13,7 +13,7 @@
 """
 Methods for calculating rate constants
 """
-from pyomo.environ import exp, Var, units as pyunits
+from pyomo.environ import exp, Var, log, value, units as pyunits
 
 from idaes.core import MaterialFlowBasis
 from idaes.generic_models.properties.core.generic.utility import \
@@ -69,71 +69,73 @@ class arrhenius_complex():
                     "{} received unrecognised ConcentrationForm ({}). "
                     "This should not happen - please contact the IDAES "
                     "developers with this bug."
-                    .format(rblock.name, c_form)
+                    .format(rblock.name, c_form))
+            
             r_units = (r_base *
                        units["length"]**-3 *
                        units["time"]**-1 *
                        c_units**order)
         
         rblock.alpha_olig = Var(
-        	doc="Oligomerization pre-exponential")
-        	# units=r_units_alpha_olig)
+            doc="Oligomerization pre-exponential")
+            # units=r_units_alpha_olig)
         set_param_from_config(rblock, param="alpha_olig",config=config)
         
         rblock.alpha_crack = Var(
-        	doc="Cracking pre-exponential")
-        	# units=r_units_alpha_crack)
+            doc="Cracking pre-exponential")
+            # units=r_units_alpha_crack)
         set_param_from_config(rblock, param="alpha_crack",config=config)
         
         rblock.gamma = Var(
-        	doc="Chain-length coefficient for heat of formation",
-        	units=units["energy_mole"])
+            doc="Chain-length coefficient for heat of formation",
+            units=units["energy_mole"])
         set_param_from_config(rblock, param="gamma",config=config)
         
         rblock.delta = Var(
-        	doc="Standard heat of formation for olefins",
-        	units=units["energy_mole"])
+            doc="Standard heat of formation for olefins",
+            units=units["energy_mole"])
         set_param_from_config(rblock, param="delta",config=config)
         
         rblock.alpha_ads = Var(
-        	doc="Dispersive van der Waals interaction parameter",
-        	units=units["energy_mole"])
+            doc="Dispersive van der Waals interaction parameter",
+            units=units["energy_mole"])
         set_param_from_config(rblock, param="alpha_ads",config=config)
         
         rblock.beta_ads = Var(
-        	doc="Parameter for local interaction between olefin and acid site",
-        	units=units["energy_mole"])
+            doc="Parameter for local interaction between olefin and acid site",
+            units=units["energy_mole"])
         set_param_from_config(rblock, param="beta_ads",config=config)
         
         rblock.kappa_olig = Var(
-        	doc="Transfer coefficient for oligomerization",
-        	units=None)
+            doc="Transfer coefficient for oligomerization",
+            units=None)
         set_param_from_config(rblock, param="kappa_olig",config=config)
-	
-	    rblock.kappa_crack = Var(
-        	doc="Transfer coefficient for cracking",
-        	units=None)
+    
+        rblock.kappa_crack = Var(
+            doc="Transfer coefficient for cracking",
+            units=None)
         set_param_from_config(rblock, param="kappa_crack",config=config)
         
         rblock.E0 = Var(
-        	doc="Intrinsic energy barrier",
-        	units=units["energy_mole"])
+            doc="Intrinsic energy barrier",
+            units=units["energy_mole"])
         set_param_from_config(rblock, param="E0",config=config)
         
         rblock.C_n = Var(
-        	doc="Carbon number of adsorbed reactant",
-        	units=None)
+            doc="Carbon number of adsorbed reactant",
+            units=None)
         set_param_from_config(rblock, param="C_n",config=config)
-        	
+            
         rblock.C_m = Var(
-        	doc="Carbon number of gas-phase reactant reactant",
-        	units=None)
+            doc="Carbon number of gas-phase reactant reactant",
+            units=None)
         set_param_from_config(rblock, param="C_m",config=config)
         
-        rblock.r_type = Var(
-        	doc="Reaction type: oligomerization (1) or cracking (2)",
-        	units=None)
-        set_param_from_config(rblock, param="r_type",config=config)
+        # rblock.r_type = Var(
+        #    doc="Reaction type: oligomerization (1) or cracking (2)",
+        #    units=None)
+        rblock.r_type = config.parameter_data["r_type"]
+        # set_param_from_config(rblock, param="r_type",config=config)
         
     @staticmethod
     def return_expression(b, rblock, r_idx, T):
@@ -142,9 +144,9 @@ class arrhenius_complex():
         lamda = log((9.9/(5.6*10**7))*1.01325*10**5)
         delH_ads = rblock.alpha_ads + rblock.C_n * rblock.beta_ads
         
-        delH_formation_n = rblock.gamma * n + rblock.delta
-        delH_formation_m = rblock.gamma * m + rblock.delta
-        delH_formation_nm = rblock.gamma * (n+m) + rblock.delta
+        delH_formation_n = rblock.gamma * rblock.C_n + rblock.delta
+        delH_formation_m = rblock.gamma * rblock.C_m + rblock.delta
+        delH_formation_nm = rblock.gamma * (rblock.C_n + rblock.C_m) + rblock.delta
         
         # delH_reaction = None
         
@@ -152,9 +154,10 @@ class arrhenius_complex():
         
         log_k_nm = None
         
-        if r_block.r_type == 1:
+        
+        if rblock.r_type == 1:
             delH_reaction = delH_formation_nm - delH_formation_m - delH_formation_n
-            if delH_reaction <= 0.0:
+            if value(delH_reaction) <= 0.0:
                 Ea = rblock.E0 + rblock.kappa_olig * delH_reaction
             else:
                 Ea = rblock.E0 + (1 - rblock.kappa_olig) * delH_reaction
@@ -162,9 +165,9 @@ class arrhenius_complex():
             log_k_nm = rblock.alpha_olig + log(T) - log(298.15) + lamda + (delH_ads-Ea)/(
                                                                            pyunits.convert(c.gas_constant,
                                                                            to_units=units["gas_constant"])*T)
-        elif r_block.r_type == 2:
+        elif rblock.r_type == 2:
             delH_reaction = delH_formation_m + delH_formation_n - delH_formation_nm
-            if delH_reaction <= 0.0:
+            if value(delH_reaction) <= 0.0:
                 Ea = rblock.E0 + rblock.kappa_crack * delH_reaction
             else:
                 Ea = rblock.E0 + (1 - rblock.kappa_crack) * delH_reaction
