@@ -69,23 +69,11 @@ class arrhenius():
                     "{} received unrecognised ConcentrationForm ({}). "
                     "This should not happen - please contact the IDAES "
                     "developers with this bug."
-                    .format(rblock.name, c_form))
-
+                    .format(rblock.name, c_form)
             r_units = (r_base *
                        units["length"]**-3 *
                        units["time"]**-1 *
                        c_units**order)
-
-        rblock.arrhenius_const = Var(
-                doc="Arrhenius constant (pre-exponential factor)",
-                units=r_units)
-        set_param_from_config(rblock, param="arrhenius_const", config=config)
-
-        rblock.energy_activation = Var(
-                doc="Activation energy",
-                units=units["energy_mole"])
-
-        set_param_from_config(rblock, param="energy_activation", config=config)
         
         rblock.alpha_olig = Var(
         	doc="Oligomerization pre-exponential",
@@ -98,43 +86,62 @@ class arrhenius():
         set_param_from_config(rblock, param="alpha_crack",config=config)
         
         rblock.gamma = Var(
-        	doc="Gamma",
+        	doc="Chain-length coefficient for heat of formation",
         	units=units["energy_mole"])
         set_param_from_config(rblock, param="gamma",config=config)
         
         rblock.delta = Var(
-        	doc="Delta",
+        	doc="Standard heat of formation for olefins",
         	units=units["energy_mole"])
         set_param_from_config(rblock, param="delta",config=config)
         
         rblock.alpha_ads = Var(
-        	doc="Alpha adsorption",
+        	doc="Dispersive van der Waals interaction parameter",
         	units=units["energy_mole"])
         set_param_from_config(rblock, param="alpha_ads",config=config)
         
         rblock.beta_ads = Var(
-        	doc="Beta adsorption",
+        	doc="Parameter for local interaction between olefin and acid site",
         	units=units["energy_mole"])
         set_param_from_config(rblock, param="beta_ads",config=config)
         
         rblock.kappa_olig = Var(
-        	doc="Kappa oligomerization",
+        	doc="Transfer coefficient for oligomerization",
         	units=None)
         set_param_from_config(rblock, param="kappa_olig",config=config)
 	
 	rblock.kappa_crack = Var(
-        	doc="Kappa cracking",
+        	doc="Transfer coefficient for cracking",
         	units=None)
         set_param_from_config(rblock, param="kappa_crack",config=config)
         
         rblock.E0 = Var(
-        	doc="E0",
+        	doc="Intrinsic energy barrier",
         	units=units["energy_mole"])
         set_param_from_config(rblock, param="E0",config=config)
+        
+        rblock.C_n = Var(
+        	doc="Carbon number of adsorbed reactant",
+        	units=None,
+        	set_param_from_config(rblock, param="C_n",config=config)
+        	
+        rblock.C_m = Var(
+        	doc="Carbon number of gas-phase reactant reactant",
+        	units=None,
+        	set_param_from_config(rblock, param="C_m",config=config)
+        
+        rblock.r_type = Var(
+        	doc="Reaction type: oligomerization (1) or cracking (2)",
+        	units=None,
+        	set_param_from_config(rblock, param="r_type",config=config)
         
     @staticmethod
     def return_expression(b, rblock, r_idx, T):
         units = rblock.parent_block().get_metadata().derived_units
+        
+        if r_block.r_type == 1:
+        
+        elif r_block.r_type == 2:
 
         return rblock.arrhenius_const * exp(
             -rblock.energy_activation / (
