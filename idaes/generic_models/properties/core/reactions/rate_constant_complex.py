@@ -25,7 +25,7 @@ from idaes.core.util.exceptions import BurntToast, ConfigurationError
 
 # -----------------------------------------------------------------------------
 # Constant dh_rxn
-class arrhenius():
+class arrhenius_complex():
 
     @staticmethod
     def build_parameters(rblock, config):
