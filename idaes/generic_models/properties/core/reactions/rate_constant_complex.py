@@ -76,13 +76,13 @@ class arrhenius():
                        c_units**order)
         
         rblock.alpha_olig = Var(
-        	doc="Oligomerization pre-exponential",
-        	units=r_units_alpha_olig)
+        	doc="Oligomerization pre-exponential")
+        	# units=r_units_alpha_olig)
         set_param_from_config(rblock, param="alpha_olig",config=config)
         
-        rblock.alpha_olig = Var(
-        	doc="Cracking pre-exponential",
-        	units=r_units_alpha_crack)
+        rblock.alpha_crack = Var(
+        	doc="Cracking pre-exponential")
+        	# units=r_units_alpha_crack)
         set_param_from_config(rblock, param="alpha_crack",config=config)
         
         rblock.gamma = Var(
@@ -110,7 +110,7 @@ class arrhenius():
         	units=None)
         set_param_from_config(rblock, param="kappa_olig",config=config)
 	
-	rblock.kappa_crack = Var(
+	    rblock.kappa_crack = Var(
         	doc="Transfer coefficient for cracking",
         	units=None)
         set_param_from_config(rblock, param="kappa_crack",config=config)
@@ -122,28 +122,55 @@ class arrhenius():
         
         rblock.C_n = Var(
         	doc="Carbon number of adsorbed reactant",
-        	units=None,
-        	set_param_from_config(rblock, param="C_n",config=config)
+        	units=None)
+        set_param_from_config(rblock, param="C_n",config=config)
         	
         rblock.C_m = Var(
         	doc="Carbon number of gas-phase reactant reactant",
-        	units=None,
-        	set_param_from_config(rblock, param="C_m",config=config)
+        	units=None)
+        set_param_from_config(rblock, param="C_m",config=config)
         
         rblock.r_type = Var(
         	doc="Reaction type: oligomerization (1) or cracking (2)",
-        	units=None,
-        	set_param_from_config(rblock, param="r_type",config=config)
+        	units=None)
+        set_param_from_config(rblock, param="r_type",config=config)
         
     @staticmethod
     def return_expression(b, rblock, r_idx, T):
         units = rblock.parent_block().get_metadata().derived_units
         
-        if r_block.r_type == 1:
+        lamda = log((9.9/(5.6*10**7))*1.01325*10**5)
+        delH_ads = rblock.alpha_ads + rblock.C_n * rblock.beta_ads
         
+        delH_formation_n = rblock.gamma * n + rblock.delta
+        delH_formation_m = rblock.gamma * m + rblock.delta
+        delH_formation_nm = rblock.gamma * (n+m) + rblock.delta
+        
+        # delH_reaction = None
+        
+        Ea = None
+        
+        log_k_nm = None
+        
+        if r_block.r_type == 1:
+            delH_reaction = delH_formation_nm - delH_formation_m - delH_formation_n
+            if delH_reaction <= 0.0:
+                Ea = rblock.E0 + rblock.kappa_olig * delH_reaction
+            else:
+                Ea = rblock.E0 + (1 - rblock.kappa_olig) * delH_reaction
+            
+            log_k_nm = rblock.alpha_olig + log(T) - log(298.15) + lamda + (delH_ads-Ea)/(
+                                                                           pyunits.convert(c.gas_constant,
+                                                                           to_units=units["gas_constant"])*T)
         elif r_block.r_type == 2:
-
-        return rblock.arrhenius_const * exp(
-            -rblock.energy_activation / (
-                pyunits.convert(c.gas_constant,
-                                to_units=units["gas_constant"])*T))
+            delH_reaction = delH_formation_m + delH_formation_n - delH_formation_nm
+            if delH_reaction <= 0.0:
+                Ea = rblock.E0 + rblock.kappa_crack * delH_reaction
+            else:
+                Ea = rblock.E0 + (1 - rblock.kappa_crack) * delH_reaction
+            
+            log_k_nm = rblock.alpha_crack + log(T) - log(298.15) + lamda + (delH_ads-Ea)/(
+                                                                            pyunits.convert(c.gas_constant,
+                                                                            to_units=units["gas_constant"])*T)
+                
+        return exp(log_k_nm)
