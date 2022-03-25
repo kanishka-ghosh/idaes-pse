@@ -134,6 +134,10 @@ class arrhenius_complex():
         # rblock.r_type = Var(
         #    doc="Reaction type: oligomerization (1) or cracking (2)",
         #    units=None)
+        # integer boolean to indicate reaction type:
+        # 1: oligomerization
+        # 2: cracking
+        # TODO: add validation for r_type
         rblock.r_type = config.parameter_data["r_type"]
         # set_param_from_config(rblock, param="r_type",config=config)
         
