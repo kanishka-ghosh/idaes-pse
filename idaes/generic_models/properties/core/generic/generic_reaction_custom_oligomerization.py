@@ -77,7 +77,7 @@ rxn_config.declare("parameter_data", ConfigValue(
     description="Dict containing initialization data for parameters"))
 
 rate_rxn_config = rxn_config()
-rate_rxn_config.declare("rate_constant_complex", ConfigValue(
+rate_rxn_config.declare("rate_constant_custom_oligomerization", ConfigValue(
     description="Expression form describing rate constant",
     doc="Valid Python class containing instructions on how to construct "
     "the rate constant for this reaction."))
@@ -542,7 +542,7 @@ class GenericReactionBlockData(ReactionBlockDataBase):
 
             carg = b.params.config.rate_reactions[r]
 
-            return carg["rate_constant_complex"].return_expression(
+            return carg["rate_constant_custom_oligomerization"].return_expression(
                 b, rblock, r, b.state_ref.temperature)
 
         self.k_rxn = Expression(self.params.rate_reaction_idx,

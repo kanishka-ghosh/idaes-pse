@@ -131,12 +131,8 @@ class arrhenius_complex():
             units=None)
         set_param_from_config(rblock, param="C_m",config=config)
         
-        # rblock.r_type = Var(
-        #    doc="Reaction type: oligomerization (1) or cracking (2)",
-        #    units=None)
-        # integer boolean to indicate reaction type:
-        # 1: oligomerization
-        # 2: cracking
+
+        # string to indicate reaction type: 'oligomerization', 'cracking'
         # TODO: add validation for r_type
         rblock.r_type = config.parameter_data["r_type"]
         # set_param_from_config(rblock, param="r_type",config=config)
@@ -159,7 +155,7 @@ class arrhenius_complex():
         log_k_nm = None
         
         
-        if rblock.r_type == 1:
+        if rblock.r_type == 'oligomerization':
             delH_reaction = delH_formation_nm - delH_formation_m - delH_formation_n
             if value(delH_reaction) <= 0.0:
                 Ea = rblock.E0 + rblock.kappa_olig * delH_reaction
@@ -169,7 +165,7 @@ class arrhenius_complex():
             log_k_nm = rblock.alpha_olig + log(T) - log(298.15) + lamda + (delH_ads-Ea)/(
                                                                            pyunits.convert(c.gas_constant,
                                                                            to_units=units["gas_constant"])*T)
-        elif rblock.r_type == 2:
+        elif rblock.r_type == 'cracking':
             delH_reaction = delH_formation_m + delH_formation_n - delH_formation_nm
             if value(delH_reaction) <= 0.0:
                 Ea = rblock.E0 + rblock.kappa_crack * delH_reaction
