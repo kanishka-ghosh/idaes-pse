@@ -121,6 +121,14 @@ class arrhenius_complex():
             units=units["energy_mole"])
         set_param_from_config(rblock, param="E0",config=config)
         
+        rblock.A_phys = Var(
+            doc="Pre-exponential factor for rate of adsorption")
+        set_param_from_config(rblock, param='A_phys',config=config)
+        
+        rblock.A_des = Var(
+            doc="Pre-exponential factor for rate of desorption")
+        set_param_from_config(rblock, param='A_des',config=config)
+        
         rblock.C_n = Var(
             doc="Carbon number of adsorbed reactant",
             units=None)
@@ -141,7 +149,7 @@ class arrhenius_complex():
     def return_expression(b, rblock, r_idx, T):
         units = rblock.parent_block().get_metadata().derived_units
         
-        lamda = log((9.9/(5.6*10**7))*1.01325*10**5)
+        lamda = log((rblock.A_phys/rblock.A_des)*1.01325*10**5)
         delH_ads = rblock.alpha_ads + rblock.C_n * rblock.beta_ads
         
         delH_formation_n = rblock.gamma * rblock.C_n + rblock.delta
