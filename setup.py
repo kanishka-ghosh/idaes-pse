@@ -33,7 +33,7 @@ def rglob(path, glob):
 
 
 DEPENDENCIES_FOR_PRERELEASE_VERSION = [
-    "pyomo @ https://github.com/IDAES/pyomo/archive/6.3.0.zip"
+    "pyomo @ https://github.com/IDAES/pyomo/archive/6.4.0.zip"
 ]
 
 # For included DMF data
@@ -70,6 +70,7 @@ kwargs = dict(
         "bunch",
         "click>=8",
         "colorama",
+        "distro", # help identify linux distros for binary downloads
         "flask",  # for ui/fsvis
         "flask-cors",
         "jupyter",
@@ -108,8 +109,9 @@ kwargs = dict(
         "prerelease": DEPENDENCIES_FOR_PRERELEASE_VERSION,
         "optional": [
             "tensorflow",  # idaes.surrogate.keras_surrogate
+            "gridx-prescient>=2.1",  # idaes.tests.prescient
             # A Lee 11-Jan-22: no precompiled version of CoolProp available for Pyhton 3.9
-            "coolprop; python_version < '3.9'"  # idaes.generic_models.properties.general.coolprop
+            "coolprop; python_version < '3.9'",  # idaes.generic_models.properties.general.coolprop
         ],
     },
     package_data={
