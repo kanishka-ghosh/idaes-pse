@@ -1,14 +1,14 @@
 #################################################################################
 # The Institute for the Design of Advanced Energy Systems Integrated Platform
 # Framework (IDAES IP) was produced under the DOE Institute for the
-# Design of Advanced Energy Systems (IDAES), and is copyright (c) 2018-2021
-# by the software owners: The Regents of the University of California, through
-# Lawrence Berkeley National Laboratory,  National Technology & Engineering
-# Solutions of Sandia, LLC, Carnegie Mellon University, West Virginia University
-# Research Corporation, et al.  All rights reserved.
+# Design of Advanced Energy Systems (IDAES).
 #
-# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and
-# license information.
+# Copyright (c) 2018-2023 by the software owners: The Regents of the
+# University of California, through Lawrence Berkeley National Laboratory,
+# National Technology & Engineering Solutions of Sandia, LLC, Carnegie Mellon
+# University, West Virginia University Research Corporation, et al.
+# All rights reserved.  Please see the files COPYRIGHT.md and LICENSE.md
+# for full copyright and license information.
 #################################################################################
 
 import pytest
@@ -20,28 +20,25 @@ from idaes.models.properties import iapws95
 from idaes.models_extra.power_generation.unit_models import FWH0D
 from idaes.core.util.model_statistics import degrees_of_freedom
 from idaes.core.solvers import get_solver
+from idaes.models.properties.general_helmholtz import helmholtz_available
 
 # Set up solver
 solver = get_solver()
 
 
+@pytest.mark.skipif(not helmholtz_available(), reason="General Helmholtz not available")
 @pytest.mark.unit
 def test_fwh_model():
     model = pyo.ConcreteModel()
     model.fs = FlowsheetBlock(
-        default={
-            "dynamic": False,
-            "default_property_package": iapws95.Iapws95ParameterBlock(),
-        }
+        dynamic=False, default_property_package=iapws95.Iapws95ParameterBlock()
     )
     model.fs.properties = model.fs.config.default_property_package
     model.fs.fwh = FWH0D(
-        default={
-            "has_desuperheat": True,
-            "has_drain_cooling": True,
-            "has_drain_mixer": True,
-            "property_package": model.fs.properties,
-        }
+        has_desuperheat=True,
+        has_drain_cooling=True,
+        has_drain_mixer=True,
+        property_package=model.fs.properties,
     )
 
     model.fs.fwh.desuperheat.hot_side_inlet.flow_mol[:].set_value(100)
@@ -68,23 +65,19 @@ def test_fwh_model():
     )
 
 
+@pytest.mark.skipif(not helmholtz_available(), reason="General Helmholtz not available")
 @pytest.mark.integration
 def test_fwh_units():
     model = pyo.ConcreteModel()
     model.fs = FlowsheetBlock(
-        default={
-            "dynamic": False,
-            "default_property_package": iapws95.Iapws95ParameterBlock(),
-        }
+        dynamic=False, default_property_package=iapws95.Iapws95ParameterBlock()
     )
     model.fs.properties = model.fs.config.default_property_package
     model.fs.fwh = FWH0D(
-        default={
-            "has_desuperheat": True,
-            "has_drain_cooling": True,
-            "has_drain_mixer": True,
-            "property_package": model.fs.properties,
-        }
+        has_desuperheat=True,
+        has_drain_cooling=True,
+        has_drain_mixer=True,
+        property_package=model.fs.properties,
     )
 
     assert_units_consistent(model)

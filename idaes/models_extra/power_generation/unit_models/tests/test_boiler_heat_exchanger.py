@@ -1,14 +1,14 @@
 #################################################################################
 # The Institute for the Design of Advanced Energy Systems Integrated Platform
 # Framework (IDAES IP) was produced under the DOE Institute for the
-# Design of Advanced Energy Systems (IDAES), and is copyright (c) 2018-2021
-# by the software owners: The Regents of the University of California, through
-# Lawrence Berkeley National Laboratory,  National Technology & Engineering
-# Solutions of Sandia, LLC, Carnegie Mellon University, West Virginia University
-# Research Corporation, et al.  All rights reserved.
+# Design of Advanced Energy Systems (IDAES).
 #
-# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and
-# license information.
+# Copyright (c) 2018-2023 by the software owners: The Regents of the
+# University of California, through Lawrence Berkeley National Laboratory,
+# National Technology & Engineering Solutions of Sandia, LLC, Carnegie Mellon
+# University, West Virginia University Research Corporation, et al.
+# All rights reserved.  Please see the files COPYRIGHT.md and LICENSE.md
+# for full copyright and license information.
 #################################################################################
 """
 Tests for 0D Boiler heat exchanger model.
@@ -41,7 +41,6 @@ from idaes.models_extra.power_generation.unit_models.boiler_heat_exchanger impor
     delta_temperature_lmtd_callback,
     delta_temperature_amtd_callback,
     delta_temperature_underwood_callback,
-    delta_temperature_underwood_tune_callback,
     HeatExchangerFlowPattern,
 )
 
@@ -49,8 +48,7 @@ from idaes.core.util.model_statistics import degrees_of_freedom
 from idaes.core.util.testing import PhysicalParameterTestBlock
 from idaes.core.solvers import get_solver
 import idaes.core.util.scaling as iscale
-
-import idaes.logger as idaeslog
+from idaes.models.properties.general_helmholtz import helmholtz_available
 
 # -----------------------------------------------------------------------------
 # Get default solver for testing
@@ -58,16 +56,15 @@ solver = get_solver()
 
 
 # -----------------------------------------------------------------------------
-@pytest.mark.unit
-def test_no_deprecated(caplog):
+def tc(delta_temperature_callback=delta_temperature_underwood_callback):
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
+
     m.fs.prop_steam = iapws95.Iapws95ParameterBlock()
     m.fs.prop_fluegas = FlueGasParameterBlock()
 
-    caplog.clear()
     m.fs.unit = BoilerHeatExchanger(
-        delta_temperature_callback=delta_temperature_lmtd_callback,
+        delta_temperature_callback=delta_temperature_callback,
         cold_side={"property_package": m.fs.prop_steam, "has_pressure_change": True},
         hot_side={"property_package": m.fs.prop_fluegas, "has_pressure_change": True},
         has_holdup=True,
@@ -75,41 +72,6 @@ def test_no_deprecated(caplog):
         tube_arrangement=TubeArrangement.inLine,
         cold_side_water_phase="Liq",
         has_radiation=True,
-    )
-    n_warn = 0
-    n_depreacted = 0
-    for record in caplog.records:
-        if record.levelno == idaeslog.WARNING:
-            n_warn += 1
-    # TODO: 1 warning due to overloading initialize, not sure what the rest
-    # of this is about
-    assert n_warn == 0  # 1 DeltaTMethod Enum and 1 for delta_T_method option
-
-
-def tc(delta_temperature_callback=delta_temperature_underwood_tune_callback):
-    m = ConcreteModel()
-    m.fs = FlowsheetBlock(default={"dynamic": False})
-
-    m.fs.prop_steam = iapws95.Iapws95ParameterBlock()
-    m.fs.prop_fluegas = FlueGasParameterBlock()
-
-    m.fs.unit = BoilerHeatExchanger(
-        default={
-            "delta_temperature_callback": delta_temperature_callback,
-            "cold_side": {
-                "property_package": m.fs.prop_steam,
-                "has_pressure_change": True,
-            },
-            "hot_side": {
-                "property_package": m.fs.prop_fluegas,
-                "has_pressure_change": True,
-            },
-            "has_holdup": True,
-            "flow_pattern": HeatExchangerFlowPattern.countercurrent,
-            "tube_arrangement": TubeArrangement.inLine,
-            "cold_side_water_phase": "Liq",
-            "has_radiation": True,
-        }
     )
 
     # Check unit config arguments
@@ -119,34 +81,26 @@ def tc(delta_temperature_callback=delta_temperature_underwood_tune_callback):
 
 
 def th(
-    delta_temperature_callback=delta_temperature_underwood_tune_callback,
+    delta_temperature_callback=delta_temperature_underwood_callback,
     tout_1=809.55,
     tout_2=788.53,
 ):
     m = ConcreteModel()
-    m.fs = FlowsheetBlock(default={"dynamic": False})
+    m.fs = FlowsheetBlock(dynamic=False)
 
     m.fs.properties = PhysicalParameterTestBlock()
     m.fs.prop_steam = iapws95.Iapws95ParameterBlock()
     m.fs.prop_fluegas = FlueGasParameterBlock()
 
     m.fs.unit = BoilerHeatExchanger(
-        default={
-            "delta_temperature_callback": delta_temperature_callback,
-            "cold_side": {
-                "property_package": m.fs.prop_steam,
-                "has_pressure_change": True,
-            },
-            "hot_side": {
-                "property_package": m.fs.prop_fluegas,
-                "has_pressure_change": True,
-            },
-            "has_holdup": False,
-            "flow_pattern": HeatExchangerFlowPattern.countercurrent,
-            "tube_arrangement": TubeArrangement.inLine,
-            "cold_side_water_phase": "Liq",
-            "has_radiation": True,
-        }
+        delta_temperature_callback=delta_temperature_callback,
+        cold_side={"property_package": m.fs.prop_steam, "has_pressure_change": True},
+        hot_side={"property_package": m.fs.prop_fluegas, "has_pressure_change": True},
+        has_holdup=False,
+        flow_pattern=HeatExchangerFlowPattern.countercurrent,
+        tube_arrangement=TubeArrangement.inLine,
+        cold_side_water_phase="Liq",
+        has_radiation=True,
     )
 
     #   Set inputs
@@ -205,57 +159,47 @@ def th(
     )
 
 
-def tu(delta_temperature_callback=delta_temperature_underwood_tune_callback):
+def tu(delta_temperature_callback=delta_temperature_underwood_callback):
     m = ConcreteModel()
-    m.fs = FlowsheetBlock(default={"dynamic": False})
+    m.fs = FlowsheetBlock(dynamic=False)
 
     m.fs.properties = PhysicalParameterTestBlock()
     m.fs.prop_steam = iapws95.Iapws95ParameterBlock()
     m.fs.prop_fluegas = FlueGasParameterBlock()
 
     m.fs.unit = BoilerHeatExchanger(
-        default={
-            "delta_temperature_callback": delta_temperature_callback,
-            "cold_side": {
-                "property_package": m.fs.prop_steam,
-                "has_pressure_change": True,
-            },
-            "hot_side": {
-                "property_package": m.fs.prop_fluegas,
-                "has_pressure_change": True,
-            },
-            "has_holdup": False,
-            "flow_pattern": HeatExchangerFlowPattern.countercurrent,
-            "tube_arrangement": TubeArrangement.inLine,
-            "cold_side_water_phase": "Liq",
-            "has_radiation": True,
-        }
+        delta_temperature_callback=delta_temperature_callback,
+        cold_side={"property_package": m.fs.prop_steam, "has_pressure_change": True},
+        hot_side={"property_package": m.fs.prop_fluegas, "has_pressure_change": True},
+        has_holdup=False,
+        flow_pattern=HeatExchangerFlowPattern.countercurrent,
+        tube_arrangement=TubeArrangement.inLine,
+        cold_side_water_phase="Liq",
+        has_radiation=True,
     )
 
     assert_units_consistent(m)
 
 
+@pytest.mark.skipif(not helmholtz_available(), reason="General Helmholtz not available")
 @pytest.mark.unit
 def test_config_am():
     tc(delta_temperature_amtd_callback)
 
 
+@pytest.mark.skipif(not helmholtz_available(), reason="General Helmholtz not available")
 @pytest.mark.unit
 def test_config_lm():
     tc(delta_temperature_lmtd_callback)
 
 
+@pytest.mark.skipif(not helmholtz_available(), reason="General Helmholtz not available")
 @pytest.mark.unit
 def test_config_uw():
     tc(delta_temperature_underwood_callback)
 
 
-@pytest.mark.unit
-def test_config_uwt():
-    tc(delta_temperature_underwood_tune_callback)
-
-
-@pytest.mark.skipif(not iapws95.iapws95_available(), reason="IAPWS not available")
+@pytest.mark.skipif(not helmholtz_available(), reason="General Helmholtz not available")
 @pytest.mark.skipif(solver is None, reason="Solver not available")
 @pytest.mark.component
 def test_boiler_hx_am():
@@ -263,46 +207,33 @@ def test_boiler_hx_am():
     th(delta_temperature_amtd_callback, tout_1=817.7, tout_2=720)
 
 
-@pytest.mark.skipif(not iapws95.iapws95_available(), reason="IAPWS not available")
+@pytest.mark.skipif(not helmholtz_available(), reason="General Helmholtz not available")
 @pytest.mark.skipif(solver is None, reason="Solver not available")
 @pytest.mark.component
 def test_boiler_hx_lm():
     th(delta_temperature_lmtd_callback)
 
 
-@pytest.mark.skipif(not iapws95.iapws95_available(), reason="IAPWS not available")
+@pytest.mark.skipif(not helmholtz_available(), reason="General Helmholtz not available")
 @pytest.mark.skipif(solver is None, reason="Solver not available")
 @pytest.mark.component
 def test_boiler_hx_uw():
     th(delta_temperature_underwood_callback)
 
 
-@pytest.mark.skipif(not iapws95.iapws95_available(), reason="IAPWS not available")
-@pytest.mark.skipif(solver is None, reason="Solver not available")
-@pytest.mark.component
-def test_boiler_hx_uwt():
-    th(delta_temperature_underwood_tune_callback)
-
-
-@pytest.mark.skipif(not iapws95.iapws95_available(), reason="IAPWS not available")
+@pytest.mark.skipif(not helmholtz_available(), reason="General Helmholtz not available")
 @pytest.mark.integration
 def test_units_am():
     tu(delta_temperature_amtd_callback)
 
 
-@pytest.mark.skipif(not iapws95.iapws95_available(), reason="IAPWS not available")
+@pytest.mark.skipif(not helmholtz_available(), reason="General Helmholtz not available")
 @pytest.mark.integration
 def test_units_lm():
     tu(delta_temperature_lmtd_callback)
 
 
-@pytest.mark.skipif(not iapws95.iapws95_available(), reason="IAPWS not available")
+@pytest.mark.skipif(not helmholtz_available(), reason="General Helmholtz not available")
 @pytest.mark.integration
 def test_units_uw():
     tu(delta_temperature_underwood_callback)
-
-
-@pytest.mark.skipif(not iapws95.iapws95_available(), reason="IAPWS not available")
-@pytest.mark.integration
-def test_units_uwt():
-    tu(delta_temperature_underwood_tune_callback)

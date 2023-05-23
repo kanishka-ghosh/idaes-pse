@@ -1,14 +1,14 @@
 #################################################################################
 # The Institute for the Design of Advanced Energy Systems Integrated Platform
 # Framework (IDAES IP) was produced under the DOE Institute for the
-# Design of Advanced Energy Systems (IDAES), and is copyright (c) 2018-2021
-# by the software owners: The Regents of the University of California, through
-# Lawrence Berkeley National Laboratory,  National Technology & Engineering
-# Solutions of Sandia, LLC, Carnegie Mellon University, West Virginia University
-# Research Corporation, et al.  All rights reserved.
+# Design of Advanced Energy Systems (IDAES).
 #
-# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and
-# license information.
+# Copyright (c) 2018-2023 by the software owners: The Regents of the
+# University of California, through Lawrence Berkeley National Laboratory,
+# National Technology & Engineering Solutions of Sandia, LLC, Carnegie Mellon
+# University, West Virginia University Research Corporation, et al.
+# All rights reserved.  Please see the files COPYRIGHT.md and LICENSE.md
+# for full copyright and license information.
 #################################################################################
 """
 Power Plant IDAES heat exchanger model.
@@ -27,19 +27,20 @@ The main config arguments:
     - has radiation: True if model is used as a reheater or superheater unit
         Gas emissivity calculated (Gas temperature above 700 K)
 
-General assumtpions:
+General assumptions:
     - SI units (consistent with prop pack)
     - heat transfer calc U = f(Nu, Re, Pr)
     - Pressure drop tube and shell side (friction factor calc.)
 
 """
+# TODO: Missing docstrings
+# pylint: disable=missing-class-docstring
 
 __author__ = "Boiler subsystem team (J Ma, M Zamarripa)"
 __version__ = "1.0.0"
 
 # Import Python libraries
-import logging
-from enum import Enum, EnumMeta
+from enum import Enum
 
 # Import Pyomo libraries
 from pyomo.common.config import ConfigValue, In
@@ -68,6 +69,8 @@ import idaes.core.util.scaling as iscale
 import idaes.logger as idaeslog
 from idaes.core.util.exceptions import ConfigurationError
 
+# These are convenience imports of methods from the base HX model
+# pylint: disable=W0611
 from idaes.models.unit_models.heat_exchanger import (
     HeatExchangerData,
     delta_temperature_lmtd_callback,
@@ -80,62 +83,12 @@ from idaes.models.unit_models.heat_exchanger import (
 
 
 # Set up logger
-_log = logging.getLogger(__name__)
+_log = idaeslog.getLogger(__name__)
 
 
 class TubeArrangement(Enum):
     inLine = 0
     staggered = 1
-
-
-class _DeprecateDeltaTMethod(EnumMeta):
-    # This is used to log a deprecation warning if someone uses DeltaTMethod
-    def __getattribute__(cls, name):
-        obj = super().__getattribute__(name)
-        if isinstance(obj, Enum):
-            _log.warning(
-                "'DeltaTMethod' is deprecated use 'HeatExchangerFlowPattern' "
-                "This will be removed in IDAES 3.0"
-            )
-        return obj
-
-
-class DeltaTMethod(Enum, metaclass=_DeprecateDeltaTMethod):
-    """DEPRECATED: use HeatExchangerFlowPattern instead"""
-
-    counterCurrent = HeatExchangerFlowPattern.countercurrent
-    coCurrent = HeatExchangerFlowPattern.cocurrent
-
-
-def delta_temperature_underwood_tune_callback(b):
-    """
-    This is a callback for a temperature difference expression to calculate
-    :math:`\Delta T` in the heat exchanger model using log-mean temperature
-    difference (LMTD) approximation given by Underwood (1970).  It can be
-    supplied to "delta_temperature_callback" HeatExchanger configuration option.
-    This uses a cube root function that works with negative numbers returning
-    the real negative root. This should always evaluate successfully.
-    """
-    _log.warning(
-        "DEPRECATED: delta_temperature_underwood_tune_callback will be "
-        "removed. Use another standard delta_temperature callback or "
-        "provide a custom callback.  This will be removed in IDAES 3.0."
-    )
-    dT1 = b.delta_temperature_in
-    dT2 = b.delta_temperature_out
-    temp_units = pyunits.get_units(dT1[dT1.index_set().first()])
-    b.lmtd_param_c1 = Var(initialize=0.3241)
-    b.lmtd_param_c2 = Var(initialize=1.99996)
-    b.lmtd_param_c1.fix()
-    b.lmtd_param_c2.fix()
-    c1 = b.lmtd_param_c1
-    c2 = b.lmtd_param_c2
-
-    @b.Expression(b.flowsheet().time)
-    def delta_temperature(b, t):
-        return (((dT1[t] / temp_units) ** c1 + (dT2[t] / temp_units) ** c1) / c2) ** (
-            1 / c1
-        ) * temp_units
 
 
 @declare_process_block_class("BoilerHeatExchanger")
@@ -337,8 +290,6 @@ class BoilerHeatExchangerData(HeatExchangerData):
             add_object_reference(self, "volume_cold_side", self.cold_side.volume)
             add_object_reference(self, "volume_hot_side", self.hot_side.volume)
             # Total tube side valume
-            self.Constraint(doc="Total tube side volume")
-
             def volume_cold_side_eqn(b):
                 return b.volume_cold_side == (
                     0.25
@@ -349,8 +300,7 @@ class BoilerHeatExchangerData(HeatExchangerData):
                     * b.tube_nrow
                 )
 
-            # Total shell side valume
-            self.Constraint(doc="Total shell side volume")
+            self.Constraint(doc="Total tube side volume", rule=volume_cold_side_eqn)
 
             def volume_hot_side_eqn(b):
                 return (
@@ -363,6 +313,9 @@ class BoilerHeatExchangerData(HeatExchangerData):
                     * b.tube_ncol
                     * b.tube_nrow
                 )
+
+            # Total shell side volume
+            self.Constraint(doc="Total shell side volume", rule=volume_hot_side_eqn)
 
     def _make_performance(self):
         """
@@ -703,11 +656,11 @@ class BoilerHeatExchangerData(HeatExchangerData):
                     == b.gas_gray_fraction[t] * b.gas_emissivity[t]
                 )
 
-            # equivalent convective heat transfer coefficent due to radiation
+            # equivalent convective heat transfer coefficient due to radiation
             @self.Constraint(
                 self.flowsheet().time,
                 doc="Equivalent convective heat transfer "
-                "coefficent due to radiation",
+                "coefficient due to radiation",
             )
             def hconv_shell_rad_eqn(b, t):
                 return b.hconv_shell_rad[t] == c.stefan_constant * b.frad_gas_shell[
@@ -1261,41 +1214,6 @@ class BoilerHeatExchangerData(HeatExchangerData):
 
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
-
-        # We have a pretty good idea that the delta Ts will be between about
-        # 1 and 100 regardless of process of temperature units, so a default
-        # should be fine, so don't warn.  Guessing a typical delta t around 10
-        # the default scaling factor is set to 0.1
-        sf_dT1 = dict(
-            zip(
-                self.delta_temperature_in.keys(),
-                [
-                    iscale.get_scaling_factor(v, default=0.1)
-                    for v in self.delta_temperature_in.values()
-                ],
-            )
-        )
-        sf_dT2 = dict(
-            zip(
-                self.delta_temperature_out.keys(),
-                [
-                    iscale.get_scaling_factor(v, default=0.1)
-                    for v in self.delta_temperature_out.values()
-                ],
-            )
-        )
-
-        # U depends a lot on the process and units of measure so user should set
-        # this one.
-        sf_u = dict(
-            zip(
-                self.overall_heat_transfer_coefficient.keys(),
-                [
-                    iscale.get_scaling_factor(v, default=0.01, warning=True)
-                    for v in self.overall_heat_transfer_coefficient.values()
-                ],
-            )
-        )
 
         # Since this depends on the process size this is another scaling factor
         # the user should always set.

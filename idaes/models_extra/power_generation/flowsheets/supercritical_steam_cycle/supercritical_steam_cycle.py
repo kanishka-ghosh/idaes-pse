@@ -1,14 +1,14 @@
 #################################################################################
 # The Institute for the Design of Advanced Energy Systems Integrated Platform
 # Framework (IDAES IP) was produced under the DOE Institute for the
-# Design of Advanced Energy Systems (IDAES), and is copyright (c) 2018-2021
-# by the software owners: The Regents of the University of California, through
-# Lawrence Berkeley National Laboratory,  National Technology & Engineering
-# Solutions of Sandia, LLC, Carnegie Mellon University, West Virginia University
-# Research Corporation, et al.  All rights reserved.
+# Design of Advanced Energy Systems (IDAES).
 #
-# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and
-# license information.
+# Copyright (c) 2018-2023 by the software owners: The Regents of the
+# University of California, through Lawrence Berkeley National Laboratory,
+# National Technology & Engineering Solutions of Sandia, LLC, Carnegie Mellon
+# University, West Virginia University Research Corporation, et al.
+# All rights reserved.  Please see the files COPYRIGHT.md and LICENSE.md
+# for full copyright and license information.
 #################################################################################
 
 """This is an example supercritical pulverized coal (SCPC) power plant steam cycle
@@ -17,22 +17,26 @@ what could be considered a typical SCPC plant, producing around 620 MW gross.
 This model is for demonstration and tutorial purposes only. Before looking at the
 model, it may be useful to look at the process flow diagram (PFD).
 """
+# Model needs to access private flow terms
+# pylint: disable=protected-access
 
 __author__ = "John Eslick, Maojian Wang"
 
 # Import Python libraries
 from collections import OrderedDict
+import os
 import argparse
 import logging
 
 # Import Pyomo libraries
 import pyomo.environ as pyo
 from pyomo.network import Arc, Port
+from pyomo.common.fileutils import this_file_dir
 
 # IDAES Imports
 from idaes.core import FlowsheetBlock  # Flowsheet class
 from idaes.core.util import model_serializer as ms  # load/save model state
-from idaes.core.util.misc import svg_tag  # place numbers/text in an SVG
+from idaes.core.util.tags import svg_tag, ModelTagGroup  # place numbers/text in an SVG
 from idaes.models.properties import iapws95  # steam properties
 from idaes.models_extra.power_generation.unit_models.helm import (
     HelmTurbineMultistage,
@@ -43,21 +47,18 @@ from idaes.models_extra.power_generation.unit_models.helm import (
 )
 from idaes.models_extra.power_generation.unit_models import FWH0D
 from idaes.models.unit_models import (  # basic IDAES unit models, and enum
-    HeatExchanger,
     MomentumMixingType,  # Enum type for mixer pressure calculation selection
 )
-from idaes.core.util import copy_port_values as _set_port  # for model intialization
+from idaes.core.util.initialization import (
+    propagate_state as _set_port,
+)  # for model initialization
 from idaes.core.solvers import get_solver
 from idaes.core.util.model_statistics import degrees_of_freedom
-from idaes.core.util.tables import create_stream_table_dataframe  # as Pandas DataFrame
 
 # Callback used to construct heat exchangers with the Underwood approx. for LMTD
 from idaes.models.unit_models.heat_exchanger import (
     delta_temperature_underwood_callback,
 )
-
-# Pressure changer type (e.g. adiabatic, pump, isentropic...)
-from idaes.models.unit_models.pressure_changer import ThermodynamicAssumption
 import idaes.logger as idaeslog
 import idaes.core.util.scaling as iscale
 
@@ -79,13 +80,13 @@ def create_model():
     #  Flowsheet and Properties                                                #
     ############################################################################
     m = pyo.ConcreteModel(name="Steam Cycle Model")
-    m.fs = FlowsheetBlock(default={"dynamic": False})  # Add steady state flowsheet
+    m.fs = FlowsheetBlock(dynamic=False)  # Add steady state flowsheet
 
     # A physical property parameter block for IAPWS-95 with pressure and enthalpy
     # (PH) state variables.  Usually pressure and enthalpy state variables are
     # more robust especially when the phases are unknown.
     m.fs.prop_water = iapws95.Iapws95ParameterBlock(
-        default={"phase_presentation": iapws95.PhaseType.MIX}
+        phase_presentation=iapws95.PhaseType.MIX
     )
 
     # A physical property parameter block with temperature, pressure and vapor
@@ -93,10 +94,7 @@ def create_model():
     # fraction is known and the temperature and pressure state variables are
     # preferable.
     m.fs.prop_water_tpx = iapws95.Iapws95ParameterBlock(
-        default={
-            "phase_presentation": iapws95.PhaseType.LG,
-            "state_vars": iapws95.StateVars.TPX,
-        }
+        phase_presentation=iapws95.PhaseType.LG, state_vars=iapws95.StateVars.TPX
     )
     ############################################################################
     #  Turbine with fill-in reheat constraints                                 #
@@ -106,18 +104,16 @@ def create_model():
     # high-, intermediate-, and low-pressure sections; steam extractions; and
     # pressure driven flow.  See the IDAES documentation for details.
     m.fs.turb = HelmTurbineMultistage(
-        default={
-            "property_package": m.fs.prop_water,
-            "num_parallel_inlet_stages": 4,  # number of admission arcs
-            "num_hp": 7,  # number of high-pressure stages
-            "num_ip": 10,  # number of intermediate-pressure stages
-            "num_lp": 11,  # number of low-pressure stages
-            "hp_split_locations": [4, 7],  # hp steam extraction locations
-            "ip_split_locations": [5, 10],  # ip steam extraction locations
-            "lp_split_locations": [4, 8, 10, 11],  # lp steam extraction locations
-            "hp_disconnect": [7],  # disconnect hp from ip to insert reheater
-            "ip_split_num_outlets": {10: 3},  # number of split streams (default is 2)
-        }
+        property_package=m.fs.prop_water,
+        num_parallel_inlet_stages=4,
+        num_hp=7,
+        num_ip=10,
+        num_lp=11,
+        hp_split_locations=[4, 7],
+        ip_split_locations=[5, 10],
+        lp_split_locations=[4, 8, 10, 11],
+        hp_disconnect=[7],
+        ip_split_num_outlets={10: 3},
     )
     # This model is only the steam cycle, and the reheater is part of the boiler.
     # To fill in the reheater gap, a few constraints for the flow, pressure drop,
@@ -165,12 +161,11 @@ def create_model():
     # Add a mixer for all the streams coming into the condenser.  In this case the
     # main steam, and the boiler feed pump turbine outlet go to the condenser
     m.fs.condenser_mix = HelmMixer(
-        default={
-            "momentum_mixing_type": MomentumMixingType.none,
-            "inlet_list": ["main", "bfpt"],
-            "property_package": m.fs.prop_water,
-        }
+        momentum_mixing_type=MomentumMixingType.none,
+        inlet_list=["main", "bfpt"],
+        property_package=m.fs.prop_water,
     )
+
     # The pressure in the mixer comes from the connection to the condenser.  All
     # the streams coming in and going out of the mixer are equal, but we created
     # the mixer with no calculation for the unit pressure. Here a constraint that
@@ -219,24 +214,17 @@ def create_model():
 
     # Add NTU condenser model
     m.fs.condenser = Condenser(
-        default={
-            "dynamic": False,
-            "shell": {
-                "has_pressure_change": False,
-                "property_package": m.fs.prop_water,
-            },
-            "tube": {"has_pressure_change": False, "property_package": m.fs.prop_water},
-        }
+        dynamic=False,
+        shell={"has_pressure_change": False, "property_package": m.fs.prop_water},
+        tube={"has_pressure_change": False, "property_package": m.fs.prop_water},
     )
 
     # Add the condenser hotwell.  In steady state a mixer will work.  This is
     # where makeup water is added if needed.
     m.fs.hotwell = HelmMixer(
-        default={
-            "momentum_mixing_type": MomentumMixingType.none,
-            "inlet_list": ["condensate", "makeup"],
-            "property_package": m.fs.prop_water,
-        }
+        momentum_mixing_type=MomentumMixingType.none,
+        inlet_list=["condensate", "makeup"],
+        property_package=m.fs.prop_water,
     )
 
     # The hotwell is assumed to be at the same pressure as the condenser.
@@ -245,9 +233,7 @@ def create_model():
         return b.condensate_state[t].pressure == b.mixed_state[t].pressure
 
     # Condensate pump (Use compressor model, since it is more robust if vapor form)
-    m.fs.cond_pump = HelmIsentropicCompressor(
-        default={"property_package": m.fs.prop_water}
-    )
+    m.fs.cond_pump = HelmIsentropicCompressor(property_package=m.fs.prop_water)
     ############################################################################
     #  Add low pressure feedwater heaters                                      #
     ############################################################################
@@ -261,25 +247,19 @@ def create_model():
     # See the IDAES documentation for more information of configuring feedwater
     # heaters
     m.fs.fwh1 = FWH0D(
-        default={
-            "has_desuperheat": False,
-            "has_drain_cooling": False,
-            "has_drain_mixer": True,
-            "property_package": m.fs.prop_water,
-            "condense": fwh_config,
-        }
+        has_desuperheat=False,
+        has_drain_cooling=False,
+        has_drain_mixer=True,
+        property_package=m.fs.prop_water,
+        condense=fwh_config,
     )
     # pump for fwh1 condensate, to pump it ahead and mix with feedwater
-    m.fs.fwh1_pump = HelmIsentropicCompressor(
-        default={"property_package": m.fs.prop_water}
-    )
+    m.fs.fwh1_pump = HelmIsentropicCompressor(property_package=m.fs.prop_water)
     # Mix the FWH1 drain back into the feedwater
     m.fs.fwh1_return = HelmMixer(
-        default={
-            "momentum_mixing_type": MomentumMixingType.none,
-            "inlet_list": ["feedwater", "fwh1_drain"],
-            "property_package": m.fs.prop_water,
-        }
+        momentum_mixing_type=MomentumMixingType.none,
+        inlet_list=["feedwater", "fwh1_drain"],
+        property_package=m.fs.prop_water,
     )
 
     # Set the mixer pressure to the feedwater pressure
@@ -289,37 +269,31 @@ def create_model():
 
     # Add the rest of the low pressure feedwater heaters
     m.fs.fwh2 = FWH0D(
-        default={
-            "has_desuperheat": True,
-            "has_drain_cooling": True,
-            "has_drain_mixer": True,
-            "property_package": m.fs.prop_water,
-            "desuperheat": fwh_config,
-            "cooling": fwh_config,
-            "condense": fwh_config,
-        }
+        has_desuperheat=True,
+        has_drain_cooling=True,
+        has_drain_mixer=True,
+        property_package=m.fs.prop_water,
+        desuperheat=fwh_config,
+        cooling=fwh_config,
+        condense=fwh_config,
     )
     m.fs.fwh3 = FWH0D(
-        default={
-            "has_desuperheat": True,
-            "has_drain_cooling": True,
-            "has_drain_mixer": True,
-            "property_package": m.fs.prop_water,
-            "desuperheat": fwh_config,
-            "cooling": fwh_config,
-            "condense": fwh_config,
-        }
+        has_desuperheat=True,
+        has_drain_cooling=True,
+        has_drain_mixer=True,
+        property_package=m.fs.prop_water,
+        desuperheat=fwh_config,
+        cooling=fwh_config,
+        condense=fwh_config,
     )
     m.fs.fwh4 = FWH0D(
-        default={
-            "has_desuperheat": True,
-            "has_drain_cooling": True,
-            "has_drain_mixer": False,
-            "property_package": m.fs.prop_water,
-            "desuperheat": fwh_config,
-            "cooling": fwh_config,
-            "condense": fwh_config,
-        }
+        has_desuperheat=True,
+        has_drain_cooling=True,
+        has_drain_mixer=False,
+        property_package=m.fs.prop_water,
+        desuperheat=fwh_config,
+        cooling=fwh_config,
+        condense=fwh_config,
     )
     ############################################################################
     #  Add deaerator and boiler feed pump (BFP)                                #
@@ -327,11 +301,9 @@ def create_model():
     # The deaerator is basically an open tank with multiple inlets.  For steady-
     # state, a mixer model is sufficient.
     m.fs.fwh5_da = HelmMixer(
-        default={
-            "momentum_mixing_type": MomentumMixingType.none,
-            "inlet_list": ["steam", "drain", "feedwater"],
-            "property_package": m.fs.prop_water,
-        }
+        momentum_mixing_type=MomentumMixingType.none,
+        inlet_list=["steam", "drain", "feedwater"],
+        property_package=m.fs.prop_water,
     )
 
     @m.fs.fwh5_da.Constraint(m.fs.time)
@@ -340,9 +312,9 @@ def create_model():
         return b.feedwater_state[t].pressure == b.mixed_state[t].pressure
 
     # Add the boiler feed pump and boiler feed pump turbine
-    m.fs.bfp = HelmIsentropicCompressor(default={"property_package": m.fs.prop_water})
+    m.fs.bfp = HelmIsentropicCompressor(property_package=m.fs.prop_water)
 
-    m.fs.bfpt = HelmTurbineStage(default={"property_package": m.fs.prop_water})
+    m.fs.bfpt = HelmTurbineStage(property_package=m.fs.prop_water)
 
     # The boiler feed pump outlet pressure is the same as the condenser
     @m.fs.Constraint(m.fs.time)
@@ -377,37 +349,31 @@ def create_model():
     #  Add high pressure feedwater heaters                                     #
     ############################################################################
     m.fs.fwh6 = FWH0D(
-        default={
-            "has_desuperheat": True,
-            "has_drain_cooling": True,
-            "has_drain_mixer": True,
-            "property_package": m.fs.prop_water,
-            "desuperheat": fwh_config,
-            "cooling": fwh_config,
-            "condense": fwh_config,
-        }
+        has_desuperheat=True,
+        has_drain_cooling=True,
+        has_drain_mixer=True,
+        property_package=m.fs.prop_water,
+        desuperheat=fwh_config,
+        cooling=fwh_config,
+        condense=fwh_config,
     )
     m.fs.fwh7 = FWH0D(
-        default={
-            "has_desuperheat": True,
-            "has_drain_cooling": True,
-            "has_drain_mixer": True,
-            "property_package": m.fs.prop_water,
-            "desuperheat": fwh_config,
-            "cooling": fwh_config,
-            "condense": fwh_config,
-        }
+        has_desuperheat=True,
+        has_drain_cooling=True,
+        has_drain_mixer=True,
+        property_package=m.fs.prop_water,
+        desuperheat=fwh_config,
+        cooling=fwh_config,
+        condense=fwh_config,
     )
     m.fs.fwh8 = FWH0D(
-        default={
-            "has_desuperheat": True,
-            "has_drain_cooling": True,
-            "has_drain_mixer": False,
-            "property_package": m.fs.prop_water,
-            "desuperheat": fwh_config,
-            "cooling": fwh_config,
-            "condense": fwh_config,
-        }
+        has_desuperheat=True,
+        has_drain_cooling=True,
+        has_drain_mixer=False,
+        property_package=m.fs.prop_water,
+        desuperheat=fwh_config,
+        cooling=fwh_config,
+        condense=fwh_config,
     )
     ############################################################################
     #  Additional Constraints/Expressions                                      #
@@ -665,13 +631,13 @@ def set_model_input(m):
     m.fs.turb.throttle_valve[3].valve_opening.fix(0.9)
     m.fs.turb.throttle_valve[4].valve_opening.fix(0.9)
     # Set the efficiency and pressure ratios of stages other than inlet and outlet
-    for i, s in m.fs.turb.hp_stages.items():
+    for s in m.fs.turb.hp_stages.values():
         s.ratioP.fix(0.80)
         s.efficiency_isentropic.fix(0.9)
-    for i, s in m.fs.turb.ip_stages.items():
+    for s in m.fs.turb.ip_stages.values():
         s.ratioP.fix(0.78)
         s.efficiency_isentropic.fix(0.9)
-    for i, s in m.fs.turb.lp_stages.items():
+    for s in m.fs.turb.lp_stages.values():
         s.ratioP[:].fix(0.76)
         s.efficiency_isentropic[:].fix(0.9)
     ############################################################################
@@ -697,7 +663,7 @@ def set_model_input(m):
     #  Low-pressure FWH section inputs                                         #
     ############################################################################
     # fwh1
-    # Heat transfer coefficent correlation constraints can be added to the
+    # Heat transfer coefficient correlation constraints can be added to the
     # feedwater heaters, but to keep this example simple, they are fixed
     # constant values here.
     m.fs.fwh1.condense.area.fix(400)
@@ -966,36 +932,44 @@ def pfd_result(m, df, svg):
     Args:
         m (ConcreteModel): A steam cycle model
         df (Pandas DataFrame): Stream table
-        svg (FILE*, str, bytes): Origianl svg svg as either a file-like object,
+        svg (FILE*, str, bytes): Original svg as either a file-like object,
             a string, or a byte array.
 
     Returns:
         (str): SVG content.
     """
     tags = {}  # dict of tags and data to insert into SVG
-    for i in df.index:  # Create entires for streams
-        tags[i + "_F"] = df.loc[i, "Molar Flow (mol/s)"]
-        tags[i + "_T"] = df.loc[i, "T (K)"]
-        tags[i + "_P"] = df.loc[i, "P (Pa)"]
+    for i in df.index:  # Create entries for streams
+        tags[i + "_F"] = df.loc[i, "Molar Flow"]
+        tags[i + "_T"] = df.loc[i, "T"]
+        tags[i + "_P"] = df.loc[i, "P"]
         tags[i + "_X"] = df.loc[i, "Vapor Fraction"]
     # Add some additional quntities from the model to report
     tags["gross_power"] = -pyo.value(m.fs.turb.power[0])
     tags["gross_power_mw"] = -pyo.value(m.fs.turb.power[0]) * 1e-6
-    tags["steam_mass_flow"] = df.loc["STEAM_MAIN", "Mass Flow (kg/s)"]
+    tags["steam_mass_flow"] = df.loc["STEAM_MAIN", "Mass Flow"]
     tags["sc_eff"] = pyo.value(m.fs.steam_cycle_eff[0])
     tags["boiler_heat"] = pyo.value(m.fs.boiler_heat[0]) * 1e-6
-    tags["steam_pressure"] = df.loc["STEAM_MAIN", "P (Pa)"] / 1000.0
-    tags["cond_pressure"] = df.loc["EXHST_MAIN", "P (Pa)"] / 1000.0
+    tags["steam_pressure"] = df.loc["STEAM_MAIN", "P"] / 1000.0
+    tags["cond_pressure"] = df.loc["EXHST_MAIN", "P"] / 1000.0
     tags["bfp_power"] = pyo.value(m.fs.bfp.work_mechanical[0])
     tags["bfp_eff"] = pyo.value(m.fs.bfp.efficiency_isentropic[0]) * 100
     tags["bfpt_power"] = pyo.value(m.fs.bfpt.work_mechanical[0])
     tags["bfpt_eff"] = pyo.value(m.fs.bfpt.efficiency_isentropic[0]) * 100
 
-    return svg_tag(tags, svg=svg)
+    tag_group = ModelTagGroup()
+    for t, v in tags.items():
+        tag_group.add(t, v, format_string="{:.3f}")
+    if svg is None:
+        fname = os.path.join(this_file_dir(), "supercritical_steam_cycle.svg")
+        with open(fname, "r") as f:
+            svg = f.read()
+    s = svg_tag(tag_group=tag_group, svg=svg)
+    return s
 
 
 def main(initialize_from_file=None, store_initialization=None):
-    """Create and initalize a model and solver
+    """Create and initialize a model and solver
 
     Args:
         None
@@ -1021,7 +995,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--initialize_from_file",
         help="File from which to load initialized values. If specified, the "
-        "initialization proceedure will be skipped.",
+        "initialization procedure will be skipped.",
         default=None,
     )
     parser.add_argument(

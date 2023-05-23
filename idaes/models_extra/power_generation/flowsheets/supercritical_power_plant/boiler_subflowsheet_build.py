@@ -1,14 +1,14 @@
 #################################################################################
 # The Institute for the Design of Advanced Energy Systems Integrated Platform
 # Framework (IDAES IP) was produced under the DOE Institute for the
-# Design of Advanced Energy Systems (IDAES), and is copyright (c) 2018-2021
-# by the software owners: The Regents of the University of California, through
-# Lawrence Berkeley National Laboratory,  National Technology & Engineering
-# Solutions of Sandia, LLC, Carnegie Mellon University, West Virginia University
-# Research Corporation, et al.  All rights reserved.
+# Design of Advanced Energy Systems (IDAES).
 #
-# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and
-# license information.
+# Copyright (c) 2018-2023 by the software owners: The Regents of the
+# University of California, through Lawrence Berkeley National Laboratory,
+# National Technology & Engineering Solutions of Sandia, LLC, Carnegie Mellon
+# University, West Virginia University Research Corporation, et al.
+# All rights reserved.  Please see the files COPYRIGHT.md and LICENSE.md
+# for full copyright and license information.
 #################################################################################
 # =============================================================================
 """
@@ -46,7 +46,14 @@ Main Assumptions:
 Created: 1/10/2020 by Boiler subsystem team (M Zamarripa)
 
 """
+# TODO: Missing docstrings
+# pylint: disable=missing-function-docstring
+
 __author__ = "Miguel Zamarripa"
+
+from collections import OrderedDict
+import os
+import logging
 
 # Import Pyomo libraries
 from pyomo.environ import (
@@ -56,7 +63,9 @@ from pyomo.environ import (
     units as pyunits,
 )
 from pyomo.network import Arc
-from idaes.core.util.misc import svg_tag
+from pyomo.common.fileutils import this_file_dir
+
+from idaes.core.util.tags import svg_tag
 
 # Import IDAES core
 from idaes.core import FlowsheetBlock
@@ -79,11 +88,8 @@ from idaes.models.unit_models.separator import (
     SplittingType,
     EnergySplittingType,
 )
-from pyomo.common.fileutils import this_file_dir
-from collections import OrderedDict
-import os
+
 from idaes.core.util.model_statistics import degrees_of_freedom
-import logging
 from idaes.core.solvers import get_solver
 
 
@@ -95,13 +101,11 @@ def main():
     m = ConcreteModel()
 
     # Add a flowsheet object to the model
-    m.fs = FlowsheetBlock(default={"dynamic": False})
+    m.fs = FlowsheetBlock(dynamic=False)
 
     m.fs.prop_water = iapws95.Iapws95ParameterBlock()
 
     build_boiler(m.fs)
-
-    TransformationFactory("network.expand_arcs").apply_to(m)
 
     # Create a solver
     solver = get_solver()
@@ -109,115 +113,76 @@ def main():
 
 
 def build_boiler(fs):
-
     # Add property packages to flowsheet library
     fs.prop_fluegas = FlueGasParameterBlock()
 
     # Create unit models
     # Boiler Economizer
     fs.ECON = BoilerHeatExchanger(
-        default={
-            "cold_side": {
-                "property_package": fs.prop_water,
-                "has_pressure_change": True,
-            },
-            "hot_side": {
-                "property_package": fs.prop_fluegas,
-                "has_pressure_change": True,
-            },
-            "has_holdup": False,
-            "flow_pattern": HeatExchangerFlowPattern.countercurrent,
-            "tube_arrangement": TubeArrangement.inLine,
-            "cold_side_water_phase": "Liq",
-            "has_radiation": False,
-        }
+        cold_side={"property_package": fs.prop_water, "has_pressure_change": True},
+        hot_side={"property_package": fs.prop_fluegas, "has_pressure_change": True},
+        has_holdup=False,
+        flow_pattern=HeatExchangerFlowPattern.countercurrent,
+        tube_arrangement=TubeArrangement.inLine,
+        cold_side_water_phase="Liq",
+        has_radiation=False,
     )
     # Primary Superheater
     fs.PrSH = BoilerHeatExchanger(
-        default={
-            "cold_side": {
-                "property_package": fs.prop_water,
-                "has_pressure_change": True,
-            },
-            "hot_side": {
-                "property_package": fs.prop_fluegas,
-                "has_pressure_change": True,
-            },
-            "has_holdup": False,
-            "flow_pattern": HeatExchangerFlowPattern.countercurrent,
-            "tube_arrangement": TubeArrangement.inLine,
-            "cold_side_water_phase": "Vap",
-            "has_radiation": True,
-        }
+        cold_side={"property_package": fs.prop_water, "has_pressure_change": True},
+        hot_side={"property_package": fs.prop_fluegas, "has_pressure_change": True},
+        has_holdup=False,
+        flow_pattern=HeatExchangerFlowPattern.countercurrent,
+        tube_arrangement=TubeArrangement.inLine,
+        cold_side_water_phase="Vap",
+        has_radiation=True,
     )
 
     # Finishing Superheater
     fs.FSH = BoilerHeatExchanger(
-        default={
-            "cold_side": {
-                "property_package": fs.prop_water,
-                "has_pressure_change": True,
-            },
-            "hot_side": {
-                "property_package": fs.prop_fluegas,
-                "has_pressure_change": True,
-            },
-            "has_holdup": False,
-            "flow_pattern": HeatExchangerFlowPattern.countercurrent,
-            "tube_arrangement": TubeArrangement.inLine,
-            "cold_side_water_phase": "Vap",
-            "has_radiation": True,
-        }
+        cold_side={"property_package": fs.prop_water, "has_pressure_change": True},
+        hot_side={"property_package": fs.prop_fluegas, "has_pressure_change": True},
+        has_holdup=False,
+        flow_pattern=HeatExchangerFlowPattern.countercurrent,
+        tube_arrangement=TubeArrangement.inLine,
+        cold_side_water_phase="Vap",
+        has_radiation=True,
     )
 
     # Reheater
     fs.RH = BoilerHeatExchanger(
-        default={
-            "cold_side": {
-                "property_package": fs.prop_water,
-                "has_pressure_change": True,
-            },
-            "hot_side": {
-                "property_package": fs.prop_fluegas,
-                "has_pressure_change": True,
-            },
-            "has_holdup": False,
-            "flow_pattern": HeatExchangerFlowPattern.countercurrent,
-            "tube_arrangement": TubeArrangement.inLine,
-            "cold_side_water_phase": "Vap",
-            "has_radiation": True,
-        }
+        cold_side={"property_package": fs.prop_water, "has_pressure_change": True},
+        hot_side={"property_package": fs.prop_fluegas, "has_pressure_change": True},
+        has_holdup=False,
+        flow_pattern=HeatExchangerFlowPattern.countercurrent,
+        tube_arrangement=TubeArrangement.inLine,
+        cold_side_water_phase="Vap",
+        has_radiation=True,
     )
     # Platen Superheater
-    fs.PlSH = Heater(default={"property_package": fs.prop_water})
+    fs.PlSH = Heater(property_package=fs.prop_water)
 
     # Boiler Water Wall
-    fs.Water_wall = Heater(default={"property_package": fs.prop_water})
+    fs.Water_wall = Heater(property_package=fs.prop_water)
 
     # Boiler Splitter (splits FSH flue gas outlet to Reheater and PrSH)
     fs.Spl1 = Separator(
-        default={
-            "property_package": fs.prop_fluegas,
-            "split_basis": SplittingType.totalFlow,
-            "energy_split_basis": EnergySplittingType.equal_temperature,
-        }
+        property_package=fs.prop_fluegas,
+        split_basis=SplittingType.totalFlow,
+        energy_split_basis=EnergySplittingType.equal_temperature,
     )
     # Flue gas mixer (mixing FG from Reheater and Primary SH, inlet to ECON)
     fs.mix1 = Mixer(
-        default={
-            "property_package": fs.prop_fluegas,
-            "inlet_list": ["Reheat_out", "PrSH_out"],
-            "dynamic": False,
-        }
+        property_package=fs.prop_fluegas,
+        inlet_list=["Reheat_out", "PrSH_out"],
+        dynamic=False,
     )
 
     # Mixer for Attemperator #1 (between PrSH and PlSH)
     fs.ATMP1 = Mixer(
-        default={
-            "property_package": fs.prop_water,
-            "inlet_list": ["Steam", "SprayWater"],
-            "dynamic": False,
-        }
+        property_package=fs.prop_water,
+        inlet_list=["Steam", "SprayWater"],
+        dynamic=False,
     )
 
     # Build connections (streams)
@@ -245,6 +210,8 @@ def build_boiler(fs):
     fs.fg_rhtomix = Arc(source=fs.RH.hot_side_outlet, destination=fs.mix1.Reheat_out)
     fs.fg_prsh2mix = Arc(source=fs.PrSH.hot_side_outlet, destination=fs.mix1.PrSH_out)
     fs.fg_mix2econ = Arc(source=fs.mix1.outlet, destination=fs.ECON.hot_side_inlet)
+
+    TransformationFactory("network.expand_arcs").apply_to(fs)
 
 
 # Set inputs ==========================
@@ -497,7 +464,6 @@ def initialize(m):
 
 
 def unfix_inlets(m):
-
     # Use FG molar composition to set component flow rates (baseline report)
     m.fs.ECON.hot_side_inlet.flow_mol_comp[0, "H2O"].unfix()
     m.fs.ECON.hot_side_inlet.flow_mol_comp[0, "CO2"].unfix()
@@ -586,9 +552,9 @@ def unfix_inlets(m):
 def pfd_result(outfile, m, df):
     tags = {}
     for i in df.index:
-        tags[i + "_F"] = df.loc[i, "Molar Flow (mol/s)"]
-        tags[i + "_T"] = df.loc[i, "T (K)"]
-        tags[i + "_P"] = df.loc[i, "P (Pa)"]
+        tags[i + "_F"] = df.loc[i, "Molar Flow"]
+        tags[i + "_T"] = df.loc[i, "T"]
+        tags[i + "_P"] = df.loc[i, "P"]
         tags[i + "_X"] = df.loc[i, "Vapor Fraction"]
 
     tags["FG_2_RH_Fm"] = value(m.fs.RH.side_2.properties_in[0].flow_mass)
@@ -625,7 +591,7 @@ def pfd_result(outfile, m, df):
 
     original_svg_file = os.path.join(this_file_dir(), "Boiler_scpc_PFD.svg")
     with open(original_svg_file, "r") as f:
-        s = svg_tag(tags, f, outfile=outfile)
+        svg_tag(tags, f, outfile=outfile)
 
 
 def _stream_dict(m):
@@ -637,7 +603,8 @@ def _stream_dict(m):
     Returns:
         None
     """
-
+    # We control m
+    # pylint: disable-next=protected-access
     m._streams = OrderedDict(
         [
             ("MS", m.fs.ATMP1.mixed_state),
@@ -693,7 +660,8 @@ def print_results(m):
     )
     print("heat transfer area = ", value(m.fs.PrSH.area_heat_transfer))
     print(
-        "overal heat transfer = ", value(m.fs.PrSH.overall_heat_transfer_coefficient[0])
+        "overall heat transfer = ",
+        value(m.fs.PrSH.overall_heat_transfer_coefficient[0]),
     )
 
     print("\n\n ------------- Economizer   ---------")

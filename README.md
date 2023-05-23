@@ -10,6 +10,7 @@ scale-up, operation and troubleshooting of innovative, advanced energy systems.
 [![Integration](https://github.com/IDAES/idaes-pse/actions/workflows/integration.yml/badge.svg)](https://github.com/IDAES/idaes-pse/actions/workflows/integration.yml)
 [![codecov](https://codecov.io/gh/IDAES/idaes-pse/branch/main/graph/badge.svg?token=1lNQNbSB29)](https://codecov.io/gh/IDAES/idaes-pse)
 [![Documentation Status](https://readthedocs.org/projects/idaes-pse/badge/?version=latest)](https://idaes-pse.readthedocs.io/en/latest/?badge=latest)
+[![Services](https://github.com/Pyomo/jenkins-status/blob/main/idaes_services.svg)](https://pyomo-jenkins.sandia.gov/)
 [![GitHub contributors](https://img.shields.io/github/contributors/IDAES/idaes-pse.svg)](https://github.com/IDAES/idaes-pse/graphs/contributors)
 [![Merged PRs](https://img.shields.io/github/issues-pr-closed-raw/IDAES/idaes-pse.svg?label=merged+PRs)](https://github.com/IDAES/idaes-pse/pulls?q=is:pr+is:merged)
 [![Issue stats](http://isitmaintained.com/badge/resolution/IDAES/idaes-pse.svg)](http://isitmaintained.com/project/IDAES/idaes-pse)
@@ -24,7 +25,7 @@ While not required, we encourage the installation of [Anaconda](https://www.anac
 
 Use conda to create a new "idaes-pse" (could be any name you like) environment then activate that environment:
 ```bash
-conda create --name idaes-pse python=3
+conda create --name idaes-pse python=3.10
 conda activate idaes-pse
 ```
 
@@ -36,7 +37,7 @@ pip install idaes_pse
 # install latest version from the main branch of this repository
 pip install 'idaes-pse[prerelease] @ https://github.com/IDAES/idaes-pse/archive/main.zip'
 ```
-
+.
 You can check the version installed with the command:
 
 ```bash
@@ -47,7 +48,7 @@ Now install the examples and the pre-build extensions (binary solvers):
 
 ```bash
 idaes get-examples
-idaes get-extensions  # on MacOS use: conda install -c conda-forge ipopt
+idaes get-extensions
 ```
 
 This will install the examples into an `examples` subdirectory which can be opened using a [Jypter](https://jupyter.org) Notebook:
@@ -59,7 +60,7 @@ From there you can explore the examples and tutorials.
 
 For more information on how to use Jupyter Lab, use the built-in *Help* menu and the extensive documentation on the [Jupyter website](https://jupyter.org).
 
-Finally, refer to the [complete idaes-pse documentation](https://idaes-pse.readthedocs.io/en/stable) for more detailed [installation instructions](https://idaes-pse.readthedocs.io/en/stable/getting_started/), [user guide](https://idaes-pse.readthedocs.io/en/stable/user_guide/), examples, technical specification, etc.
+Finally, refer to the [complete idaes-pse documentation](https://idaes-pse.readthedocs.io/en/stable) for detailed [installation instructions](https://idaes-pse.readthedocs.io/en/stable/tutorials/getting_started/index.html), examples, guides, and reference.
 
 ## System requirements
 
@@ -69,18 +70,18 @@ The code and examples have been tested with the following operating systems:
 |----------------|--------------------|
 | Linux          | Any modern Linux   |
 | Windows        | Windows 10         |
-| Mac OSX        | Not supported*     |
+| macOS          | Partly supported*  |
 
-*For advanced users, Mac OSX installation may be performed with some small changes to the Linux installation instructions.
+*HSL is not currently provided for macOS on Intel processors, so some features may be limited or not available.
 
 Most of the functionality is implemented in Python. In accordance with
 the end-of-life for many Python 2 libraries, the IDAES Toolkit is written
 for Python 3. The following sub-versions are supported:
 
-* Python 3.7
 * Python 3.8
 * Python 3.9
 * Python 3.10
+* Python 3.11
 
 Note that Python 3.6 is *not* supported.
 
@@ -100,6 +101,6 @@ and [Transformative Power Generation Program](https://www.energy.gov/fecm/scienc
 
 ## Contributing
 
-Please see our [Advanced User Guide](https://idaes-pse.readthedocs.io/en/stable/advanced_user_guide/) and [Developer Documentation](https://idaes-pse.readthedocs.io/en/stable/advanced_user_guide/developer/) on how to work with the idaes-pse source code and contirbute changes to the project.
+Please see our [Advanced User Installation](https://idaes-pse.readthedocs.io/en/stable/tutorials/advanced_install/) and [How-to Guides](https://idaes-pse.readthedocs.io/en/stable/how_to_guides/) on how to work with the idaes-pse source code and contribute changes to the project.
 
 **By contributing to this repository, you are agreeing to all the terms set out in the LICENSE.md and COPYRIGHT.md files in this directory.**

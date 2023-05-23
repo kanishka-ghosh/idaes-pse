@@ -1,19 +1,25 @@
 #################################################################################
 # The Institute for the Design of Advanced Energy Systems Integrated Platform
 # Framework (IDAES IP) was produced under the DOE Institute for the
-# Design of Advanced Energy Systems (IDAES), and is copyright (c) 2018-2021
-# by the software owners: The Regents of the University of California, through
-# Lawrence Berkeley National Laboratory,  National Technology & Engineering
-# Solutions of Sandia, LLC, Carnegie Mellon University, West Virginia University
-# Research Corporation, et al.  All rights reserved.
+# Design of Advanced Energy Systems (IDAES).
 #
-# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and
-# license information.
+# Copyright (c) 2018-2023 by the software owners: The Regents of the
+# University of California, through Lawrence Berkeley National Laboratory,
+# National Technology & Engineering Solutions of Sandia, LLC, Carnegie Mellon
+# University, West Virginia University Research Corporation, et al.
+# All rights reserved.  Please see the files COPYRIGHT.md and LICENSE.md
+# for full copyright and license information.
 #################################################################################
 """
 Methods for setting up FpcTP as the state variables in a generic property
 package
 """
+# TODO: Missing docstrings
+# pylint: disable=missing-function-docstring
+
+# TODO: Look into protected access issues
+# pylint: disable=protected-access
+
 from pyomo.environ import (
     Constraint,
     Expression,
@@ -27,10 +33,10 @@ from idaes.core import MaterialFlowBasis, MaterialBalanceType, EnergyBalanceType
 from idaes.models.properties.modular_properties.base.utility import (
     get_bounds_from_config,
 )
-from .electrolyte_states import define_electrolyte_state, calculate_electrolyte_scaling
 from idaes.core.util.exceptions import ConfigurationError
 import idaes.logger as idaeslog
 import idaes.core.util.scaling as iscale
+from .electrolyte_states import define_electrolyte_state, calculate_electrolyte_scaling
 
 # Set up logger
 _log = idaeslog.getLogger(__name__)
@@ -64,11 +70,9 @@ def define_state(b):
 
     units = b.params.get_metadata().derived_units
     # Get bounds and initial values from config args
-    f_bounds, f_init = get_bounds_from_config(
-        b, "flow_mol_phase_comp", units["flow_mole"]
-    )
-    t_bounds, t_init = get_bounds_from_config(b, "temperature", units["temperature"])
-    p_bounds, p_init = get_bounds_from_config(b, "pressure", units["pressure"])
+    f_bounds, f_init = get_bounds_from_config(b, "flow_mol_phase_comp", units.FLOW_MOLE)
+    t_bounds, t_init = get_bounds_from_config(b, "temperature", units.TEMPERATURE)
+    p_bounds, p_init = get_bounds_from_config(b, "pressure", units.PRESSURE)
 
     # Add state variables
     b.flow_mol_phase_comp = Var(
@@ -77,21 +81,21 @@ def define_state(b):
         domain=NonNegativeReals,
         bounds=f_bounds,
         doc="Phase-component molar flowrate",
-        units=units["flow_mole"],
+        units=units.FLOW_MOLE,
     )
     b.pressure = Var(
         initialize=p_init,
         domain=NonNegativeReals,
         bounds=p_bounds,
         doc="State pressure",
-        units=units["pressure"],
+        units=units.PRESSURE,
     )
     b.temperature = Var(
         initialize=t_init,
         domain=NonNegativeReals,
         bounds=t_bounds,
         doc="State temperature",
-        units=units["temperature"],
+        units=units.TEMPERATURE,
     )
 
     # Add supporting variables
@@ -141,15 +145,15 @@ def define_state(b):
         bounds=(1e-20, 1.001),
         initialize=1 / len(b.component_list),
         doc="Phase mole fractions",
-        units=None,
+        units=pyunits.dimensionless,
     )
 
     def rule_mole_frac_phase_comp(b, p, j):
-        # Calcualting mole frac phase comp is degenerate if there is only one
+        # Calculating mole frac phase comp is degenerate if there is only one
         # component in phase.
         # Count components
         comp_count = 0
-        for p1, j1 in b.phase_component_set:
+        for p1, _ in b.phase_component_set:
             if p1 == p:
                 comp_count += 1
 
@@ -159,7 +163,7 @@ def define_state(b):
                 == b.flow_mol_phase_comp[p, j]
             )
         else:
-            return b.mole_frac_phase_comp[p, j] == 1
+            return b.mole_frac_phase_comp[p, j] == 1.0
 
     b.mole_frac_phase_comp_eq = Constraint(
         b.phase_component_set, rule=rule_mole_frac_phase_comp
@@ -167,13 +171,13 @@ def define_state(b):
 
     def rule_phase_frac(b, p):
         if len(b.phase_list) == 1:
-            return 1
+            return 1.0
         else:
             return b.flow_mol_phase[p] / b.flow_mol
 
     b.phase_frac = Expression(b.phase_list, rule=rule_phase_frac, doc="Phase fractions")
 
-    # Add electrolye state vars if required
+    # Add electrolyte state vars if required
     if b.params._electrolyte:
         define_electrolyte_state(b)
 
@@ -295,7 +299,7 @@ def define_default_scaling_factors(b):
         f_bounds = state_bounds["flow_mol_phase_comp"]
         if len(f_bounds) == 4:
             f_init = pyunits.convert_value(
-                f_bounds[1], from_units=f_bounds[3], to_units=units["flow_mole"]
+                f_bounds[1], from_units=f_bounds[3], to_units=units.FLOW_MOLE
             )
         else:
             f_init = f_bounds[1]
@@ -306,7 +310,7 @@ def define_default_scaling_factors(b):
         p_bounds = state_bounds["pressure"]
         if len(p_bounds) == 4:
             p_init = pyunits.convert_value(
-                p_bounds[1], from_units=p_bounds[3], to_units=units["pressure"]
+                p_bounds[1], from_units=p_bounds[3], to_units=units.PRESSURE
             )
         else:
             p_init = p_bounds[1]
@@ -317,7 +321,7 @@ def define_default_scaling_factors(b):
         t_bounds = state_bounds["temperature"]
         if len(t_bounds) == 4:
             t_init = pyunits.convert_value(
-                t_bounds[1], from_units=t_bounds[3], to_units=units["temperature"]
+                t_bounds[1], from_units=t_bounds[3], to_units=units.TEMPERATURE
             )
         else:
             t_init = t_bounds[1]
@@ -350,6 +354,8 @@ do_not_initialize = []
 
 
 class FpcTP(object):
+    """Phase-component flow, temperature, pressure state."""
+
     set_metadata = set_metadata
     define_state = define_state
     state_initialization = state_initialization

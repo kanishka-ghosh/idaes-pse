@@ -85,14 +85,24 @@ If `energy_split_basis` is `enthalpy_split`:
 
 .. math:: sum_p{h_{in, t, p}*sf_{t, o, p}} = sum_p{h_{t, o, p}}
 
+If `momentum_balance_type` is `pressureTotal`:
+
 `pressure_equality_eqn(t, o)`:
 
 .. math:: P_{in, t} = P_{t, o}
 
-Separator Class
----------------
+Separators do not support momentum balances using the `pressurePhase`, `momentumTotal` or `momentumPhase` options.
+
+Initialization
+--------------
 
 .. module:: idaes.models.unit_models.separator
+
+.. autoclass:: SeparatorInitializer
+   :members: initialization_routine
+
+Separator Class
+---------------
 
 .. autoclass:: Separator
   :members:
